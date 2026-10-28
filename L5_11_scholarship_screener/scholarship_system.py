@@ -1,10 +1,12 @@
+"""Scholarship screening system: scores applicants and shortlists them."""
+
 import json
 import ast
 import operator
 
 # Global state
 results = {}
-MERIT_FORMULA = "gpa * 10 + credits * 2"
+MERIT_CONFIG = {"formula": "gpa * 10 + credits * 2"}
 INCOME_LIMIT = 800000
 CUTOFF = 85
 
@@ -25,49 +27,57 @@ def _safe_eval(node, names):
     raise ValueError("Unsupported expression")
 
 
-def calculate_merit_score(gpa, credits):
-    tree = ast.parse(MERIT_FORMULA, mode="eval")
-    return _safe_eval(tree, {"gpa": gpa, "credits": credits})
+def calculate_merit_score(gpa, credits_points):
+    """Return the merit score for the given GPA and credits."""
+    tree = ast.parse(MERIT_CONFIG["formula"], mode="eval")
+    return _safe_eval(tree, {"gpa": gpa, "credits": credits_points})
 
 
-def evaluate_applicant(student_id, test_scores, logs=[]):
+def evaluate_applicant(student_id, test_scores, logs=None):
+    """Score an applicant, record the result, and return eligibility."""
     gpa = test_scores["gpa"]
-    credits = test_scores.get("credits", 0)
+    credits_points = test_scores.get("credits", 0)
     income = test_scores.get("income", 0)
-    score = calculate_merit_score(gpa, credits)
+    score = calculate_merit_score(gpa, credits_points)
     eligible = score >= CUTOFF and income < INCOME_LIMIT
     results[student_id] = {"score": score, "eligible": eligible}
-    logs.append("%s scored %s" % (student_id, score))
+    if logs is not None:
+        logs.append(f"{student_id} scored {score}")
     return eligible
 
 
 def change_formula(new_formula):
-    global MERIT_FORMULA
-    MERIT_FORMULA = new_formula
+    """Replace the merit formula used for scoring."""
+    MERIT_CONFIG["formula"] = new_formula
 
 
 def persist_results(file="scholarships.json"):
-    f = open(file, "w")
-    f.write(json.dumps(results))
-    f.close()
+    """Save all results to a JSON file."""
+    with open(file, "w", encoding="utf-8") as f:
+        json.dump(results, f)
 
 
 def load_results(file="scholarships.json"):
-    global results
+    """Load results from a JSON file."""
     try:
-        results = json.loads(open(file).read())
+        with open(file, encoding="utf-8") as f:
+            data = json.load(f)
+        results.clear()
+        results.update(data)
     except (FileNotFoundError, json.JSONDecodeError):
-        print("Could not load %s, keeping current results" % file)
+        print(f"Could not load {file}, keeping current results")
 
 
-def printShortlist():
+def print_shortlist():
+    """Print every applicant who is eligible."""
     print("Shortlisted applicants:")
-    for r in results:
-        if results[r]["eligible"]:
-            print(" ", r, "score =", results[r]["score"])
+    for student_id, info in results.items():
+        if info["eligible"]:
+            print(" ", student_id, "score =", info["score"])
 
 
 def main():
+    """Run the sample applicants and print the shortlist."""
     evaluate_applicant("U001", {"gpa": 9.1, "credits": 4, "income": 450000})
     evaluate_applicant("U002", {"gpa": 7.2, "credits": 1, "income": 300000})
     evaluate_applicant("U003", {"gpa": 12.5, "credits": -3, "income": -1})
@@ -78,7 +88,7 @@ def main():
     evaluate_applicant("U005", {"gpa": 8.4, "credits": 3, "income": 600000})
     persist_results()
     load_results()
-    printShortlist()
+    print_shortlist()
 
 
 main()
