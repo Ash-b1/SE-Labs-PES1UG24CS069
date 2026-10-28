@@ -1,6 +1,4 @@
 import json
-import math
-import sys
 import ast
 import operator
 
@@ -12,6 +10,7 @@ CUTOFF = 85
 
 _OPS = {ast.Add: operator.add, ast.Sub: operator.sub,
         ast.Mult: operator.mul, ast.Div: operator.truediv}
+
 
 def _safe_eval(node, names):
     if isinstance(node, ast.Expression):
@@ -25,9 +24,11 @@ def _safe_eval(node, names):
                                    _safe_eval(node.right, names))
     raise ValueError("Unsupported expression")
 
+
 def calculate_merit_score(gpa, credits):
     tree = ast.parse(MERIT_FORMULA, mode="eval")
     return _safe_eval(tree, {"gpa": gpa, "credits": credits})
+
 
 def evaluate_applicant(student_id, test_scores, logs=[]):
     gpa = test_scores["gpa"]
@@ -39,14 +40,17 @@ def evaluate_applicant(student_id, test_scores, logs=[]):
     logs.append("%s scored %s" % (student_id, score))
     return eligible
 
+
 def change_formula(new_formula):
     global MERIT_FORMULA
     MERIT_FORMULA = new_formula
+
 
 def persist_results(file="scholarships.json"):
     f = open(file, "w")
     f.write(json.dumps(results))
     f.close()
+
 
 def load_results(file="scholarships.json"):
     global results
@@ -55,11 +59,13 @@ def load_results(file="scholarships.json"):
     except (FileNotFoundError, json.JSONDecodeError):
         print("Could not load %s, keeping current results" % file)
 
+
 def printShortlist():
     print("Shortlisted applicants:")
     for r in results:
-        if results[r]["eligible"] == True:
+        if results[r]["eligible"]:
             print(" ", r, "score =", results[r]["score"])
+
 
 def main():
     evaluate_applicant("U001", {"gpa": 9.1, "credits": 4, "income": 450000})
@@ -73,5 +79,6 @@ def main():
     persist_results()
     load_results()
     printShortlist()
+
 
 main()
